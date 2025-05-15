@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: ./apps/gateway/Dockerfile
+      args:
+        APP_NAME: gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth
+      - event
+    networks:
+      - app-network
+    environment:
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+
+  auth:
+    build:
+      context: .
+      dockerfile: ./apps/auth/Dockerfile
+      args:
+        APP_NAME: auth
+    expose:
+      - "3001"
+    networks:
+      - app-network
+    environment:
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+
+  event:
+    build:
+      context: .
+      dockerfile: ./apps/event/Dockerfile
+      args:
+        APP_NAME: event
+    expose:
+      - "3002"
+    networks:
+      - app-network
+    environment:
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge 
