@@ -1,32 +1,55 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller,} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { DatabaseService } from '@app/database';
-import { MessagePattern } from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
+import { CreateUserDto } from './dto/create-user.dto';
+import { LoginDto } from './dto/login.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService, private readonly databaseService: DatabaseService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Get()
-  getHello(): string {
-    return this.authService.getHello();
+
+  @MessagePattern('create_user')
+  async create(@Payload() createUserDto: CreateUserDto): Promise<any> {
+    try {
+      const user = await this.authService.create(createUserDto);
+      // 비밀번호 제외하고 반환
+      const { password, ...result } = user.toObject();
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message
+      };
+    }
   }
 
-  @Get('db-test')
-  async testDatabaseConnection() {
-    const isConnected = await this.databaseService.isConnected();
-    return {
-      status: isConnected ? 'connected' : 'disconnected',
-      message: isConnected ? 'Database connection successful!' : 'Database connection failed!',
-    };
+  @MessagePattern('login')
+  async login(@Payload() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
-  @MessagePattern({ cmd: 'health' })
-  checkHealth() {
-    return {
-      status: 'ok',
-      service: 'auth',
-      timestamp: new Date().toISOString(),
-    };
+  @MessagePattern('validate_token')
+  async validateToken(@Payload() data: { token: string }) {
+    return this.authService.validateToken(data.token);
+  }
+
+  @MessagePattern('update_user_role')
+  async updateUserRole(@Payload() data: { updateData: UpdateUserRoleDto, adminId: string }) {
+    return this.authService.updateUserRole(data.updateData, data.adminId);
+  }
+
+  @MessagePattern('find_all_users')
+  async findAllUsers() {
+    return this.authService.findAllUsers();
+  }
+
+  @MessagePattern('get_user_role')
+  async getUserRole(@Payload() email: string) {
+    return this.authService.getUserRole(email);
   }
 }

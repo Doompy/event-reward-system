@@ -17,6 +17,10 @@ services:
     environment:
       - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
       - MONGODB_DATABASE=event-reward
+      - AUTH_SERVICE_HOST=auth
+      - AUTH_SERVICE_PORT=3001
+      - JWT_SECRET=your_very_secret_key_for_jwt_generation
+      - JWT_EXPIRES_IN=24h
 
   auth:
     build:
@@ -31,6 +35,8 @@ services:
     environment:
       - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
       - MONGODB_DATABASE=event-reward
+      - JWT_SECRET=your_very_secret_key_for_jwt_generation
+      - JWT_EXPIRES_IN=24h
 
   event:
     build:
@@ -57,6 +63,7 @@ services:
       - MONGO_INITDB_DATABASE=event-reward
     volumes:
       - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - app-network
 
