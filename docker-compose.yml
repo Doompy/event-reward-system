@@ -15,7 +15,8 @@ services:
     networks:
       - app-network
     environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
+      - MONGODB_DATABASE=event-reward
 
   auth:
     build:
@@ -28,7 +29,8 @@ services:
     networks:
       - app-network
     environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
+      - MONGODB_DATABASE=event-reward
 
   event:
     build:
@@ -41,7 +43,8 @@ services:
     networks:
       - app-network
     environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
+      - MONGODB_DATABASE=event-reward
 
   mongodb:
     image: mongo:latest
@@ -51,6 +54,7 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin123
+      - MONGO_INITDB_DATABASE=event-reward
     volumes:
       - mongodb_data:/data/db
     networks:
