@@ -5,10 +5,13 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
+import { HealthModule } from '../health/health.module';
 
 @Module({
   imports: [
     ConfigModule,
+    HealthModule,
     ClientsModule.registerAsync([
       {
         name: 'AUTH_SERVICE',
@@ -23,6 +26,14 @@ import { APP_GUARD } from '@nestjs/core';
         }),
       },
     ]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET', 'your_secret_key'),
+        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN', '1h') },
+      }),
+    }),
   ],
   controllers: [UsersController],
   providers: [

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, HttpException, HttpStatus, UseGuards, Request, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, HttpException, HttpStatus, UseGuards, Request, Put, Headers, Ip } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from 'apps/auth/src/dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from 'libs/database/schema/user.schema';
@@ -24,11 +25,44 @@ export class UsersController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Headers('user-agent') userAgent: string,
+    @Ip() ip: string
+  ) {
     try {
-      return await this.usersService.login(loginDto);
+      return await this.usersService.login(loginDto, ip, userAgent);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  @Post('refresh-token')
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Headers('user-agent') userAgent: string,
+    @Ip() ip: string
+  ) {
+    try {
+      return await this.usersService.refreshToken(refreshTokenDto, ip, userAgent);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@Body() body: { refreshToken: string }, @Request() req) {
+    try {
+      const result = await this.usersService.logout(body.refreshToken, req.user._id);
+      
+      if (!result.success) {
+        throw new HttpException(result.message, HttpStatus.BAD_REQUEST);
+      }
+      
+      return { message: 'Logged out successfully' };
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 

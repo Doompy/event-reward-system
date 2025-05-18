@@ -1,9 +1,10 @@
-import { Controller,} from '@nestjs/common';
+import { Controller } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { RefreshTokenDto } from './dto/token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -29,13 +30,23 @@ export class AuthController {
   }
 
   @MessagePattern('login')
-  async login(@Payload() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Payload() data: { loginDto: LoginDto, ipAddress?: string, userAgent?: string }) {
+    return this.authService.login(data.loginDto, data.ipAddress, data.userAgent);
   }
 
   @MessagePattern('validate_token')
   async validateToken(@Payload() data: { token: string }) {
     return this.authService.validateToken(data.token);
+  }
+
+  @MessagePattern('refresh_token')
+  async refreshToken(@Payload() data: { refreshToken: string, ipAddress?: string, userAgent?: string }) {
+    return this.authService.refreshToken(data.refreshToken, data.ipAddress, data.userAgent);
+  }
+
+  @MessagePattern('revoke_token')
+  async revokeToken(@Payload() data: { token: string, userId: string }) {
+    return this.authService.revokeToken(data.token, data.userId);
   }
 
   @MessagePattern('update_user_role')
