@@ -24,7 +24,37 @@ import { Public } from '../common/decorators/public.decorator';
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  // 이벤트 관리 API
+  // ==================== 기본 이벤트 API - 고정 경로 ====================
+
+  @ApiOperation({ summary: '모든 이벤트 조회', description: '모든 이벤트를 조회합니다. 필터링 가능합니다.' })
+  @ApiQuery({ name: 'status', required: false, description: '이벤트 상태로 필터링 (DRAFT, ACTIVE, ENDED, CANCELED)' })
+  @ApiResponse({ status: 200, description: '이벤트 목록 반환 성공' })
+  @ApiResponse({ status: 500, description: '서버 오류' })
+  @Public()
+  @Get()
+  async findAllEvents(@Query() filters?: Record<string, any>) {
+    try {
+      return await this.eventsService.findAllEvents(filters);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @ApiOperation({ summary: '활성화된 이벤트 조회', description: '현재 활성화된 이벤트만 조회합니다.' })
+  @ApiResponse({ status: 200, description: '활성화된 이벤트 목록 반환 성공' })
+  @ApiResponse({ status: 500, description: '서버 오류' })
+  @Public()
+  @Get('active')
+  async findActiveEvents() {
+    try {
+      return await this.eventsService.findActiveEvents();
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // ==================== 이벤트 생성 API ====================
+  
   @ApiOperation({ summary: '이벤트 생성', description: '새로운 이벤트를 생성합니다.' })
   @ApiBearerAuth()
   @ApiBody({ schema: { 
@@ -65,33 +95,149 @@ export class EventsController {
     }
   }
 
-  @ApiOperation({ summary: '모든 이벤트 조회', description: '모든 이벤트를 조회합니다. 필터링 가능합니다.' })
-  @ApiQuery({ name: 'status', required: false, description: '이벤트 상태로 필터링 (DRAFT, ACTIVE, ENDED, CANCELED)' })
-  @ApiResponse({ status: 200, description: '이벤트 목록 반환 성공' })
-  @ApiResponse({ status: 500, description: '서버 오류' })
+  // ==================== 보상 관리 API - 고정 경로 ====================
+  
+  @ApiOperation({ summary: '보상 상세 조회', description: '특정 보상의 상세 정보를 조회합니다.' })
+  @ApiParam({ name: 'id', description: '보상 ID' })
+  @ApiResponse({ status: 200, description: '보상 상세 정보 반환 성공' })
+  @ApiResponse({ status: 404, description: '보상을 찾을 수 없음' })
   @Public()
-  @Get()
-  async findAllEvents(@Query() filters?: Record<string, any>) {
+  @Get('rewards/:id')
+  async findRewardById(@Param('id') id: string) {
     try {
-      return await this.eventsService.findAllEvents(filters);
+      return await this.eventsService.findRewardById(id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  @ApiOperation({ summary: '보상 정보 수정', description: '특정 보상의 정보를 수정합니다.' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'id', description: '보상 ID' })
+  @ApiBody({ schema: { 
+    properties: { 
+      name: { type: 'string', example: '수정된 보상 이름' },
+      description: { type: 'string', example: '수정된 보상 설명' },
+      totalQuantity: { type: 'number', example: 2000 }
+    }
+  }})
+  @ApiResponse({ status: 200, description: '보상 수정 성공' })
+  @ApiResponse({ status: 400, description: '잘못된 요청' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 403, description: '권한 부족' })
+  @ApiResponse({ status: 404, description: '보상을 찾을 수 없음' })
+  @Put('rewards/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OPERATOR, UserRole.ADMIN)
+  async updateReward(
+    @Param('id') id: string,
+    @Body() updateRewardDto: any,
+    @Request() req
+  ) {
+    try {
+      return await this.eventsService.updateReward(id, updateRewardDto, req.user._id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  // ==================== 보상 요청 관리 API - 고정 경로 ====================
+  
+  @ApiOperation({ summary: '보상 요청 상태 업데이트', description: '보상 요청 상태를 업데이트합니다 (승인/거부).' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'id', description: '보상 요청 ID' })
+  @ApiBody({ schema: { 
+    properties: { 
+      status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'], example: 'APPROVED' },
+      note: { type: 'string', example: '요청이 승인되었습니다.' }
+    }
+  }})
+  @ApiResponse({ status: 200, description: '보상 요청 업데이트 성공' })
+  @ApiResponse({ status: 400, description: '잘못된 요청' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 403, description: '권한 부족' })
+  @Put('requests/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OPERATOR, UserRole.ADMIN)
+  async updateRewardRequest(
+    @Param('id') id: string,
+    @Body() updateRewardRequestDto: any,
+    @Request() req
+  ) {
+    try {
+      return await this.eventsService.updateRewardRequest(id, updateRewardRequestDto, req.user._id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  @ApiOperation({ summary: '내 보상 요청 목록 조회', description: '로그인한 사용자의 모든 보상 요청을 조회합니다.' })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 200, description: '보상 요청 목록 반환 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 500, description: '서버 오류' })
+  @Get('user/requests')
+  @UseGuards(JwtAuthGuard)
+  async findMyRewardRequests(@Request() req) {
+    try {
+      return await this.eventsService.findRewardRequestsByUserId(req.user._id);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  @ApiOperation({ summary: '활성화된 이벤트 조회', description: '현재 활성화된 이벤트만 조회합니다.' })
-  @ApiResponse({ status: 200, description: '활성화된 이벤트 목록 반환 성공' })
+  @ApiOperation({ summary: '모든 보상 요청 조회', description: '모든 보상 요청을 조회합니다 (관리자용).' })
+  @ApiBearerAuth()
+  @ApiQuery({ name: 'status', required: false, description: '요청 상태로 필터링 (PENDING, APPROVED, REJECTED)' })
+  @ApiResponse({ status: 200, description: '보상 요청 목록 반환 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 403, description: '권한 부족' })
   @ApiResponse({ status: 500, description: '서버 오류' })
-  @Public()
-  @Get('active')
-  async findActiveEvents() {
+  @Get('requests-list')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OPERATOR, UserRole.AUDITOR, UserRole.ADMIN)
+  async findRewardRequests(@Query() filters?: Record<string, any>) {
     try {
-      return await this.eventsService.findActiveEvents();
+      return await this.eventsService.findRewardRequests(filters);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
+  // ==================== 유저 보상 관리 API - 고정 경로 ====================
+  
+  @ApiOperation({ summary: '내 보상 목록 조회', description: '로그인한 사용자가 받은 모든 보상을 조회합니다.' })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 200, description: '보상 목록 반환 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 500, description: '서버 오류' })
+  @Get('user/rewards')
+  @UseGuards(JwtAuthGuard)
+  async findMyRewards(@Request() req) {
+    try {
+      return await this.eventsService.findUserRewardsByUserId(req.user._id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @ApiOperation({ summary: '내 이벤트 참여 내역 조회', description: '현재 로그인한 사용자의 이벤트 참여 내역을 조회합니다.' })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 200, description: '참여 내역 반환 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 500, description: '서버 오류' })
+  @Get('user/participations')
+  @UseGuards(JwtAuthGuard)
+  async findMyParticipations(@Request() req) {
+    try {
+      return await this.eventsService.findParticipationsByUserId(req.user._id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // ==================== 이벤트 관리 API - 동적 경로 ====================
+  
   @ApiOperation({ summary: '이벤트 상세 조회', description: '특정 이벤트의 상세 정보를 조회합니다.' })
   @ApiParam({ name: 'id', description: '이벤트 ID' })
   @ApiResponse({ status: 200, description: '이벤트 상세 정보 반환 성공' })
@@ -136,7 +282,63 @@ export class EventsController {
     }
   }
 
-  // 보상 관리 API
+  @ApiOperation({ summary: '보상 요청 상세 조회', description: '특정 보상 요청의 상세 정보를 조회합니다.' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'id', description: '보상 요청 ID' })
+  @ApiResponse({ status: 200, description: '보상 요청 상세 정보 반환 성공' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 403, description: '접근 권한 없음' })
+  @ApiResponse({ status: 404, description: '보상 요청을 찾을 수 없음' })
+  @Get('requests/:id')
+  @UseGuards(JwtAuthGuard)
+  async findRewardRequestById(@Param('id') id: string, @Request() req) {
+    try {
+      const request = await this.eventsService.findRewardRequestById(id);
+      
+      // 일반 사용자는 자신의 요청만 볼 수 있음
+      if (req.user.role === UserRole.USER && request.userId.toString() !== req.user._id) {
+        throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
+      }
+      
+      return request;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+    }
+  }
+
+  // 이벤트 참여 관련 API
+  @ApiOperation({ summary: '이벤트 참여', description: '특정 이벤트에 참여합니다.' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'eventId', description: '이벤트 ID' })
+  @ApiBody({ schema: { 
+    properties: { 
+      verificationData: { type: 'object', example: { code: 'EVENT123' }, description: '참여 검증에 필요한 데이터' },
+      additionalData: { type: 'object', example: { source: 'mobile_app' }, description: '추가 참여 정보' }
+    }
+  }})
+  @ApiResponse({ status: 201, description: '이벤트 참여 성공' })
+  @ApiResponse({ status: 400, description: '잘못된 요청' })
+  @ApiResponse({ status: 401, description: '인증 실패' })
+  @Post(':eventId/participate')
+  @UseGuards(JwtAuthGuard)
+  async participateInEvent(
+    @Param('eventId') eventId: string,
+    @Body() participationData: Record<string, any>,
+    @Request() req
+  ) {
+    try {
+      const createParticipationDto = { 
+        eventId, 
+        verificationData: participationData.verificationData,
+        additionalData: participationData.additionalData
+      };
+      return await this.eventsService.createParticipation(createParticipationDto, req.user._id);
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  // 보상 생성 API
   @ApiOperation({ summary: '보상 생성', description: '특정 이벤트에 새로운 보상을 추가합니다.' })
   @ApiBearerAuth()
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
@@ -186,51 +388,6 @@ export class EventsController {
     }
   }
 
-  @ApiOperation({ summary: '보상 상세 조회', description: '특정 보상의 상세 정보를 조회합니다.' })
-  @ApiParam({ name: 'id', description: '보상 ID' })
-  @ApiResponse({ status: 200, description: '보상 상세 정보 반환 성공' })
-  @ApiResponse({ status: 404, description: '보상을 찾을 수 없음' })
-  @Public()
-  @Get('rewards/:id')
-  async findRewardById(@Param('id') id: string) {
-    try {
-      return await this.eventsService.findRewardById(id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    }
-  }
-
-  @ApiOperation({ summary: '보상 정보 수정', description: '특정 보상의 정보를 수정합니다.' })
-  @ApiBearerAuth()
-  @ApiParam({ name: 'id', description: '보상 ID' })
-  @ApiBody({ schema: { 
-    properties: { 
-      name: { type: 'string', example: '수정된 보상 이름' },
-      description: { type: 'string', example: '수정된 보상 설명' },
-      totalQuantity: { type: 'number', example: 2000 }
-    }
-  }})
-  @ApiResponse({ status: 200, description: '보상 수정 성공' })
-  @ApiResponse({ status: 400, description: '잘못된 요청' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 403, description: '권한 부족' })
-  @ApiResponse({ status: 404, description: '보상을 찾을 수 없음' })
-  @Put('rewards/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.OPERATOR, UserRole.ADMIN)
-  async updateReward(
-    @Param('id') id: string,
-    @Body() updateRewardDto: any,
-    @Request() req
-  ) {
-    try {
-      return await this.eventsService.updateReward(id, updateRewardDto, req.user._id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  // 보상 요청 API
   @ApiOperation({ summary: '보상 요청 생성', description: '이벤트 참여 후 보상을 요청합니다.' })
   @ApiBearerAuth()
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
@@ -271,158 +428,7 @@ export class EventsController {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
-
-  @ApiOperation({ summary: '보상 요청 상태 업데이트', description: '보상 요청 상태를 업데이트합니다 (승인/거부).' })
-  @ApiBearerAuth()
-  @ApiParam({ name: 'id', description: '보상 요청 ID' })
-  @ApiBody({ schema: { 
-    properties: { 
-      status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'], example: 'APPROVED' },
-      note: { type: 'string', example: '요청이 승인되었습니다.' }
-    }
-  }})
-  @ApiResponse({ status: 200, description: '보상 요청 업데이트 성공' })
-  @ApiResponse({ status: 400, description: '잘못된 요청' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 403, description: '권한 부족' })
-  @Put('requests/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.OPERATOR, UserRole.ADMIN)
-  async updateRewardRequest(
-    @Param('id') id: string,
-    @Body() updateRewardRequestDto: any,
-    @Request() req
-  ) {
-    try {
-      return await this.eventsService.updateRewardRequest(id, updateRewardRequestDto, req.user._id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
-  @ApiOperation({ summary: '보상 요청 상세 조회', description: '특정 보상 요청의 상세 정보를 조회합니다.' })
-  @ApiBearerAuth()
-  @ApiParam({ name: 'id', description: '보상 요청 ID' })
-  @ApiResponse({ status: 200, description: '보상 요청 상세 정보 반환 성공' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 403, description: '접근 권한 없음' })
-  @ApiResponse({ status: 404, description: '보상 요청을 찾을 수 없음' })
-  @Get('requests/:id')
-  @UseGuards(JwtAuthGuard)
-  async findRewardRequestById(@Param('id') id: string, @Request() req) {
-    try {
-      const request = await this.eventsService.findRewardRequestById(id);
-      
-      // 일반 사용자는 자신의 요청만 볼 수 있음
-      if (req.user.role === UserRole.USER && request.userId.toString() !== req.user._id) {
-        throw new HttpException('Access denied', HttpStatus.FORBIDDEN);
-      }
-      
-      return request;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
-    }
-  }
-
-  @ApiOperation({ summary: '내 보상 요청 목록 조회', description: '로그인한 사용자의 모든 보상 요청을 조회합니다.' })
-  @ApiBearerAuth()
-  @ApiResponse({ status: 200, description: '보상 요청 목록 반환 성공' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 500, description: '서버 오류' })
-  @Get('user/requests')
-  @UseGuards(JwtAuthGuard)
-  async findMyRewardRequests(@Request() req) {
-    try {
-      return await this.eventsService.findRewardRequestsByUserId(req.user._id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  @ApiOperation({ summary: '모든 보상 요청 조회', description: '모든 보상 요청을 조회합니다 (관리자용).' })
-  @ApiBearerAuth()
-  @ApiQuery({ name: 'status', required: false, description: '요청 상태로 필터링 (PENDING, APPROVED, REJECTED)' })
-  @ApiResponse({ status: 200, description: '보상 요청 목록 반환 성공' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 403, description: '권한 부족' })
-  @ApiResponse({ status: 500, description: '서버 오류' })
-  @Get('requests')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.OPERATOR, UserRole.AUDITOR, UserRole.ADMIN)
-  async findRewardRequests(@Query() filters?: Record<string, any>) {
-    try {
-      return await this.eventsService.findRewardRequests(filters);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // 유저 보상 관리
-  @ApiOperation({ summary: '내 보상 목록 조회', description: '로그인한 사용자가 받은 모든 보상을 조회합니다.' })
-  @ApiBearerAuth()
-  @ApiResponse({ status: 200, description: '보상 목록 반환 성공' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 500, description: '서버 오류' })
-  @Get('user/rewards')
-  @UseGuards(JwtAuthGuard)
-  async findMyRewards(@Request() req) {
-    try {
-      return await this.eventsService.findUserRewardsByUserId(req.user._id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  @ApiOperation({ summary: '사용자 보상 목록 조회', description: '특정 사용자가 받은 모든 보상을 조회합니다 (관리자용).' })
-  @ApiBearerAuth()
-  @ApiParam({ name: 'userId', description: '사용자 ID' })
-  @ApiResponse({ status: 200, description: '보상 목록 반환 성공' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @ApiResponse({ status: 403, description: '권한 부족' })
-  @ApiResponse({ status: 500, description: '서버 오류' })
-  @Get('user/:userId/rewards')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.OPERATOR, UserRole.AUDITOR, UserRole.ADMIN)
-  async findUserRewards(@Param('userId') userId: string) {
-    try {
-      return await this.eventsService.findUserRewardsByUserId(userId);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // 이벤트 참여 관련 API
-  @ApiOperation({ summary: '이벤트 참여', description: '특정 이벤트에 참여합니다.' })
-  @ApiBearerAuth()
-  @ApiParam({ name: 'eventId', description: '이벤트 ID' })
-  @ApiBody({ schema: { 
-    properties: { 
-      verificationData: { type: 'object', example: { code: 'EVENT123' }, description: '참여 검증에 필요한 데이터' },
-      additionalData: { type: 'object', example: { source: 'mobile_app' }, description: '추가 참여 정보' }
-    }
-  }})
-  @ApiResponse({ status: 201, description: '이벤트 참여 성공' })
-  @ApiResponse({ status: 400, description: '잘못된 요청' })
-  @ApiResponse({ status: 401, description: '인증 실패' })
-  @Post(':eventId/participate')
-  @UseGuards(JwtAuthGuard)
-  async participateInEvent(
-    @Param('eventId') eventId: string,
-    @Body() participationData: Record<string, any>,
-    @Request() req
-  ) {
-    try {
-      const createParticipationDto = { 
-        eventId, 
-        verificationData: participationData.verificationData,
-        additionalData: participationData.additionalData
-      };
-      return await this.eventsService.createParticipation(createParticipationDto, req.user._id);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-    }
-  }
-
+  
   @ApiOperation({ summary: '이벤트 참여자 조회', description: '특정 이벤트의 모든 참여자를 조회합니다.' })
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
   @ApiBearerAuth()
@@ -441,16 +447,19 @@ export class EventsController {
     }
   }
 
-  @ApiOperation({ summary: '내 이벤트 참여 내역 조회', description: '현재 로그인한 사용자의 이벤트 참여 내역을 조회합니다.' })
+  @ApiOperation({ summary: '사용자 보상 목록 조회', description: '특정 사용자가 받은 모든 보상을 조회합니다 (관리자용).' })
   @ApiBearerAuth()
-  @ApiResponse({ status: 200, description: '참여 내역 반환 성공' })
+  @ApiParam({ name: 'userId', description: '사용자 ID' })
+  @ApiResponse({ status: 200, description: '보상 목록 반환 성공' })
   @ApiResponse({ status: 401, description: '인증 실패' })
+  @ApiResponse({ status: 403, description: '권한 부족' })
   @ApiResponse({ status: 500, description: '서버 오류' })
-  @Get('user/participations')
-  @UseGuards(JwtAuthGuard)
-  async findMyParticipations(@Request() req) {
+  @Get('user/:userId/rewards')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.OPERATOR, UserRole.AUDITOR, UserRole.ADMIN)
+  async findUserRewards(@Param('userId') userId: string) {
     try {
-      return await this.eventsService.findParticipationsByUserId(req.user._id);
+      return await this.eventsService.findUserRewardsByUserId(userId);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
