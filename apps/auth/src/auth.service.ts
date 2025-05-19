@@ -99,16 +99,40 @@ export class AuthService {
       const user = await this.userModel.findById(payload.sub).exec();
       
       if (!user) {
-        return { isValid: false };
+        return { 
+          isValid: false,
+          message: 'User not found'
+        };
       }
       
       const { password, ...userData } = user.toObject();
+      
+      // 기본 사용자 정보
+      const userInfo = {
+        _id: userData._id.toString(),
+        email: userData.email,
+        role: userData.role,
+        nickname: userData.nickname,
+      };
+      
+      // 타임스탬프 정보가 있으면 추가
+      if ('createdAt' in userData) {
+        userInfo['createdAt'] = userData.createdAt;
+      }
+      
+      if ('updatedAt' in userData) {
+        userInfo['updatedAt'] = userData.updatedAt;
+      }
+      
       return { 
         isValid: true,
-        user: userData
+        user: userInfo
       };
     } catch (error) {
-      return { isValid: false };
+      return { 
+        isValid: false,
+        message: error.message
+      };
     }
   }
 

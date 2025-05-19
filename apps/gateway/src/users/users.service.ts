@@ -93,20 +93,43 @@ export class UsersService {
 
   async validateToken(token: string) {
     try {
-      const response = await firstValueFrom(
+      this.logger.log(`🔐 Validating token with Auth service`);
+      this.logger.log(`Token starts with: ${token.substring(0, 15)}...`);
+      
+      this.logger.log(`Sending message pattern: 'validate_token'`);
+      
+      // TCP 연결 타임아웃 설정
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Token validation timed out')), 5000);
+      });
+      
+      const responsePromise = firstValueFrom(
         this.authClient.send('validate_token', { token })
       );
+      
+      // 두 Promise 중 먼저 완료되는 것을 기다림
+      const response = await Promise.race([responsePromise, timeoutPromise]);
+      
+      this.logger.log(`Auth service response: ${JSON.stringify(response)}`);
 
       if (!response.isValid) {
+        this.logger.warn(`Token validation failed: ${JSON.stringify(response)}`);
         throw new UnauthorizedException('Invalid token');
       }
 
       // 서비스 가용성 업데이트
       this.healthService.updateServiceStatus('auth', true);
       
-      return response.user;
+      // Auth 서비스에서 반환한 사용자 정보 그대로 반환
+      if (response.user) {
+        return response.user;
+      } else {
+        this.logger.warn('Auth service did not return user data');
+        throw new UnauthorizedException('User data not found');
+      }
     } catch (error) {
       this.logger.error(`Token validation error: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
       this.healthService.updateServiceStatus('auth', false);
       throw new UnauthorizedException('Invalid token');
     }

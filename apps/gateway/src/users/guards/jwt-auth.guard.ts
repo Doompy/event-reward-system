@@ -12,52 +12,57 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    this.logger.log('🔒 JwtAuthGuard.canActivate called');
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
     
     if (!authHeader) {
+      this.logger.warn('No authorization header provided');
       throw new UnauthorizedException('No token provided');
     }
     
     const [type, token] = authHeader.split(' ');
     
     if (type !== 'Bearer') {
+      this.logger.warn(`Invalid token type: ${type}`);
       throw new UnauthorizedException('Invalid token type');
     }
     
     try {
-      // 1. 로컬에서 JWT 검증 먼저 시도
+      // JWT 토큰 검증 및 사용자 정보 가져오기
+      this.logger.log(`Verifying JWT token locally: ${token.substring(0, 15)}...`);
+      const payload = this.jwtService.verify(token);
+      this.logger.log(`JWT payload verified: ${JSON.stringify(payload)}`);
+      
+      // Auth 서비스에서 사용자 정보 가져오기
+      this.logger.log(`Validating token with Auth service: ${token.substring(0, 15)}...`);
       try {
-        const payload = this.jwtService.verify(token);
+        const userData = await this.usersService.validateToken(token);
+        this.logger.log(`User data from Auth service: ${JSON.stringify(userData)}`);
         
-        // 기본 검증 통과, 추가 데이터가 필요하면 Auth 서비스 호출
-        try {
-          const user = await this.usersService.validateToken(token);
-          request.user = user;
-          return true;
-        } catch (authServiceError) {
-          this.logger.warn(`Auth service validation failed: ${authServiceError.message}`);
-          
-          // Auth 서비스 호출 실패 시, 기본 페이로드로 최소한의 정보 제공
-          request.user = {
-            _id: payload.sub,
-            email: payload.email,
-            role: payload.role,
-            nickname: payload.nickname,
-            // 중요: 완전한 사용자 정보가 아님을 표시
-            isPartialUser: true,
-          };
-          return true;
-        }
-      } catch (jwtError) {
-        // 로컬 JWT 검증 실패, Auth 서비스로 시도
-        this.logger.debug(`Local JWT validation failed: ${jwtError.message}`);
-        const user = await this.usersService.validateToken(token);
-        request.user = user;
+        // 사용자 정보를 요청 객체에 설정
+        request.user = userData;
+        this.logger.log('✅ Authentication successful');
+        return true;
+      } catch (error) {
+        this.logger.error(`Error validating token with Auth service: ${error.message}`);
+        this.logger.log(`Error stack: ${error.stack}`);
+        this.logger.log(`Falling back to local JWT payload`);
+        
+        // Auth 서비스에서 검증 실패하면 토큰의 정보만 사용
+        request.user = {
+          _id: payload.sub,
+          email: payload.email,
+          role: payload.role,
+          nickname: payload.nickname,
+        };
+        
+        this.logger.log(`Using JWT payload as user: ${JSON.stringify(request.user)}`);
         return true;
       }
     } catch (error) {
       this.logger.error(`Authentication failed: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
       throw new UnauthorizedException('Invalid token');
     }
   }

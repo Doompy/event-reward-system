@@ -14,13 +14,8 @@ services:
       - event
     networks:
       - app-network
-    environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
-      - MONGODB_DATABASE=event-reward
-      - AUTH_SERVICE_HOST=auth
-      - AUTH_SERVICE_PORT=3001
-      - JWT_SECRET=your_very_secret_key_for_jwt_generation
-      - JWT_EXPIRES_IN=24h
+    env_file:
+      - .env
 
   auth:
     build:
@@ -32,11 +27,8 @@ services:
       - "3001"
     networks:
       - app-network
-    environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
-      - MONGODB_DATABASE=event-reward
-      - JWT_SECRET=your_very_secret_key_for_jwt_generation
-      - JWT_EXPIRES_IN=24h
+    env_file:
+      - .env
 
   event:
     build:
@@ -48,9 +40,8 @@ services:
       - "3002"
     networks:
       - app-network
-    environment:
-      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/event-reward
-      - MONGODB_DATABASE=event-reward
+    env_file:
+      - .env
 
   mongodb:
     image: mongo:latest

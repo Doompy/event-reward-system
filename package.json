@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./jest-e2e.json --detectOpenHandles",
+    "test:e2e": "jest --config ./apps/gateway/test/jest-e2e.json --detectOpenHandles",
+    "test:e2e:event": "jest --config ./apps/event/test/jest-e2e.json --detectOpenHandles",
+    "test:e2e:all": "yarn test:e2e && yarn test:e2e:event",
     "test:integration": "jest --config ./jest-integration.json",
     "migrate:event-participation": "node scripts/migrations/add-event-participation.js"
   },
@@ -32,6 +34,7 @@
     "@nestjs/mongoose": "^11.0.3",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.4.8",
+    "@nestjs/swagger": "^11.2.0",
     "@nestjs/terminus": "^11.0.0",
     "@types/bcrypt": "^5.0.2",
     "@types/uuid": "^10.0.0",
@@ -48,6 +51,7 @@
     "pino-pretty": "^13.0.0",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

@@ -2,19 +2,75 @@
 
 마이크로서비스 아키텍처를 사용한 이벤트 리워드 시스템입니다.
 
+## 목차
+- [기술 스택](#기술-스택)
+- [시스템 아키텍처](#시스템-아키텍처)
+- [주요 기능](#주요-기능)
+- [시작하기](#시작하기)
+- [API 문서](#api-문서)
+- [설계 의도 및 구현 방식](#설계-의도-및-구현-방식)
+- [테스트](#테스트)
+- [배포](#배포)
+
 ## 기술 스택
 
-- NestJS
-- MongoDB
-- Docker
-- Microservices Architecture
+- **Backend Framework**: NestJS
+- **Database**: MongoDB
+- **Container**: Docker
+- **Architecture**: Microservices
+- **Language**: TypeScript
+- **Authentication**: JWT
+- **API Documentation**: Swagger/OpenAPI
 
-## 서비스 구성
+## 시스템 아키텍처
 
-- Gateway (포트: 3000)
-- Auth Service (포트: 3001)
-- Event Service (포트: 3002)
-- MongoDB (포트: 27017)
+### 서비스 구성
+- **Gateway Service** (포트: 3000)
+  - 모든 API 요청의 진입점
+  - 인증 및 권한 검사
+  - 요청 라우팅
+  - API 문서화 (Swagger)
+
+- **Auth Service** (포트: 3001)
+  - 사용자 관리
+  - 인증 처리
+  - JWT 토큰 관리
+  - 역할 기반 권한 관리
+
+- **Event Service** (포트: 3002)
+  - 이벤트 관리
+  - 보상 관리
+  - 참여 관리
+
+### 데이터베이스
+- MongoDB를 사용하여 각 서비스별 독립적인 데이터 저장
+- 기본적인 인덱스 설정
+
+## 주요 기능
+
+### 1. 이벤트 관리
+- 이벤트 생성 및 수정
+- 조건 설정 (로그인, 출석)
+- 기간 및 상태 관리
+- 참여자 관리
+
+### 2. 보상 관리
+- 포인트 타입 보상 지원
+- 보상 수량 설정
+- 자동 보상 지급
+- 보상 이력 관리
+
+### 3. 사용자 관리
+- 회원가입 및 로그인
+- 역할 기반 권한 관리
+  - USER: 일반 사용자
+  - OPERATOR: 이벤트/보상 관리
+  - ADMIN: 전체 관리
+
+### 4. 보상 요청 처리
+- 조건 충족 검증
+- 중복 요청 방지
+- 요청 상태 관리
 
 ## 시작하기
 
@@ -23,16 +79,45 @@
 1. `.env` 파일 생성
 ```bash
 # MongoDB Configuration
-MONGODB_URI=mongodb://admin:admin123@mongodb:27017
+MONGODB_URI=mongodb://localhost:27017/event-reward
 MONGODB_USER=admin
 MONGODB_PASSWORD=admin123
-MONGODB_HOST=mongodb
+MONGODB_HOST=localhost
 MONGODB_PORT=27017
 
 # Service Ports
 GATEWAY_PORT=3000
 AUTH_PORT=3001
 EVENT_PORT=3002
+
+# JWT Configuration
+JWT_SECRET=your-secret-key
+JWT_EXPIRATION=1d
+```
+
+2. MongoDB 초기 설정
+```bash
+# MongoDB 컨테이너 실행
+docker-compose up -d mongodb
+
+# MongoDB 컨테이너 접속
+docker exec -it mongodb mongosh
+
+# 관리자 계정 생성
+use admin
+db.createUser({
+  user: "admin",
+  pwd: "admin123",
+  roles: [ { role: "userAdminAnyDatabase", db: "admin" } ]
+})
+
+# 애플리케이션 데이터베이스 생성 및 사용자 권한 설정
+use event-reward
+db.createUser({
+  user: "admin",
+  pwd: "admin123",
+  roles: [ { role: "readWrite", db: "event-reward" } ]
+})
 ```
 
 ### 개발 환경 실행
@@ -52,97 +137,60 @@ yarn start:dev
 docker-compose up --build
 ```
 
-## API 엔드포인트
+## API 문서
 
-### Health Check
-- Gateway: `GET http://localhost:3000/auth/health`
-- Auth Service: `GET http://localhost:3000/auth/health`
-- Event Service: `GET http://localhost:3000/event/health`
+Swagger UI를 통해 API 문서를 확인할 수 있습니다:
+- Gateway: `http://localhost:3000/api-docs`
 
-## 프로젝트 구조
+API 문서는 다음과 같은 섹션으로 구성되어 있습니다:
+- Auth API: 사용자 인증 및 권한 관리
+- Event API: 이벤트 및 보상 관리
 
-```
-.
-├── apps/
-│   ├── gateway/     # API Gateway
-│   ├── auth/        # 인증 서비스
-│   └── event/       # 이벤트 서비스
-├── libs/
-│   ├── database/    # 데이터베이스 모듈
-│   └── common/      # 공통 모듈
-└── docker-compose.yml
-```
+### API 인증
 
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+대부분의 API는 JWT 토큰 인증이 필요합니다. 토큰은 다음과 같이 얻을 수 있습니다:
+1. `/auth/create_user` 엔드포인트로 사용자 생성
+2. `/auth/login` 엔드포인트로 로그인하여 토큰 발급
+3. 발급받은 토큰을 Authorization 헤더에 포함하여 API 요청
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 설계 의도 및 구현 방식
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+### 1. 마이크로서비스 아키텍처 선택 이유
+- 서비스별 독립적인 배포와 확장 가능
+- 기술 스택의 유연한 변경 가능
+- 서비스별 독립적인 데이터베이스 관리
 
-## Description
+### 2. 인증 및 권한 관리
+- JWT를 사용한 무상태(Stateless) 인증
+- 역할 기반 접근 제어(RBAC) 구현
+- 토큰 갱신 및 폐기 메커니즘
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### 3. 이벤트 및 보상 시스템
+- 이벤트 조건의 유연한 확장 가능
+- 보상 지급의 원자성 보장
+- 중복 참여 및 보상 방지
 
-## Installation
+### 4. 데이터베이스 설계
+- MongoDB를 사용한 유연한 스키마
+- 기본적인 인덱스 설정
+
+## 테스트
 
 ```bash
-$ yarn install
+# 단위 테스트
+yarn test
+
+# 통합 테스트
+yarn test:integration
 ```
 
-## Running the app
+## 배포
 
+### Docker 배포
 ```bash
-# development
-$ yarn run start
-
-# watch mode
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
+# Docker 컨테이너 빌드 및 실행
+docker-compose up --build
 ```
 
-## Test
-
-```bash
-# unit tests
-$ yarn run test
-
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
-```
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
+### 환경별 설정
+- 개발 환경: `docker-compose.yml`

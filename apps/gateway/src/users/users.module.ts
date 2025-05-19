@@ -20,7 +20,7 @@ import { HealthModule } from '../health/health.module';
         useFactory: (configService: ConfigService) => ({
           transport: Transport.TCP,
           options: {
-            host: configService.get('AUTH_SERVICE_HOST', 'localhost'),
+            host: configService.get('AUTH_SERVICE_HOST', 'auth'),
             port: configService.get('AUTH_SERVICE_PORT', 3001),
           },
         }),
