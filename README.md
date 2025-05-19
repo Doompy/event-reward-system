@@ -122,7 +122,7 @@ yarn start:dev
 
 ```bash
 # Docker 컨테이너 빌드 및 실행
-docker-compose up --build
+docker-compose up -d
 ```
 
 ## API 문서
