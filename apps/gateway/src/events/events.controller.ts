@@ -17,6 +17,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from 'libs/database/schema/user.schema';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('이벤트')
 @Controller('events')
@@ -32,11 +33,22 @@ export class EventsController {
       description: { type: 'string', example: '신규 가입 사용자 대상 보상 이벤트' },
       startDate: { type: 'string', format: 'date-time', example: '2023-09-01T00:00:00Z' },
       endDate: { type: 'string', format: 'date-time', example: '2023-09-30T23:59:59Z' },
-      verificationCondition: { type: 'object', example: { type: 'REGISTRATION', requiredFields: ['email'] } },
-      status: { type: 'string', enum: ['DRAFT', 'ACTIVE', 'ENDED', 'CANCELED'], example: 'DRAFT' },
-      maxParticipations: { type: 'number', example: 1000 },
-      participationLimit: { type: 'number', example: 1 }
-    }
+      status: { type: 'string', enum: ['DRAFT', 'ACTIVE', 'PAUSED', 'ENDED'], example: 'DRAFT' },
+      conditionType: { type: 'string', enum: ['LOGIN_DAYS', 'INVITE_FRIENDS', 'PURCHASE_AMOUNT', 'QUEST_COMPLETION', 'ATTENDANCE', 'CUSTOM'], example: 'ATTENDANCE' },
+      conditionValue: { 
+        type: 'object',
+        example: { 
+          count: 5,
+          days: 7,
+          customData: { requiredFields: ['email'] }
+        },
+        description: '이벤트 조건 값 (conditionType에 따라 필요한 필드가 다름)'
+      },
+      autoReward: { type: 'boolean', example: false, description: '자동 보상 지급 여부' },
+      allowMultipleParticipation: { type: 'boolean', example: false, description: '다중 참여 허용 여부' },
+      maxParticipants: { type: 'number', example: 1000, description: '최대 참여자 수' }
+    },
+    required: ['title', 'description', 'startDate', 'endDate', 'conditionType', 'conditionValue']
   }})
   @ApiResponse({ status: 201, description: '이벤트 생성 성공' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
@@ -57,6 +69,7 @@ export class EventsController {
   @ApiQuery({ name: 'status', required: false, description: '이벤트 상태로 필터링 (DRAFT, ACTIVE, ENDED, CANCELED)' })
   @ApiResponse({ status: 200, description: '이벤트 목록 반환 성공' })
   @ApiResponse({ status: 500, description: '서버 오류' })
+  @Public()
   @Get()
   async findAllEvents(@Query() filters?: Record<string, any>) {
     try {
@@ -69,6 +82,7 @@ export class EventsController {
   @ApiOperation({ summary: '활성화된 이벤트 조회', description: '현재 활성화된 이벤트만 조회합니다.' })
   @ApiResponse({ status: 200, description: '활성화된 이벤트 목록 반환 성공' })
   @ApiResponse({ status: 500, description: '서버 오류' })
+  @Public()
   @Get('active')
   async findActiveEvents() {
     try {
@@ -82,6 +96,7 @@ export class EventsController {
   @ApiParam({ name: 'id', description: '이벤트 ID' })
   @ApiResponse({ status: 200, description: '이벤트 상세 정보 반환 성공' })
   @ApiResponse({ status: 404, description: '이벤트를 찾을 수 없음' })
+  @Public()
   @Get(':id')
   async findEventById(@Param('id') id: string) {
     try {
@@ -127,13 +142,15 @@ export class EventsController {
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
   @ApiBody({ schema: { 
     properties: { 
-      name: { type: 'string', example: '가입 축하 포인트' },
-      description: { type: 'string', example: '신규 가입 사용자 대상 포인트 보상' },
-      type: { type: 'string', enum: ['POINT', 'COUPON', 'ITEM'], example: 'POINT' },
-      value: { type: 'string', example: '1000' },
-      totalQuantity: { type: 'number', example: 1000 },
-      metadata: { type: 'object', example: { pointExpiry: '30d' } }
-    }
+      name: { type: 'string', example: '가입 축하 포인트', description: '보상 이름' },
+      description: { type: 'string', example: '신규 가입 사용자 대상 포인트 보상', description: '보상 설명' },
+      type: { type: 'string', enum: ['POINT', 'COUPON', 'ITEM'], example: 'POINT', description: '보상 유형' },
+      value: { type: 'string', example: '1000', description: '보상 값' },
+      totalQuantity: { type: 'number', example: 1000, description: '총 수량' },
+      metadata: { type: 'object', example: { pointExpiry: '30d' }, description: '추가 메타데이터' },
+      expiryDate: { type: 'string', format: 'date-time', example: '2023-12-31T23:59:59Z', description: '만료일' }
+    },
+    required: ['name', 'type', 'value', 'totalQuantity']
   }})
   @ApiResponse({ status: 201, description: '보상 생성 성공' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
@@ -159,6 +176,7 @@ export class EventsController {
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
   @ApiResponse({ status: 200, description: '보상 목록 반환 성공' })
   @ApiResponse({ status: 500, description: '서버 오류' })
+  @Public()
   @Get(':eventId/rewards')
   async findRewardsByEventId(@Param('eventId') eventId: string) {
     try {
@@ -172,6 +190,7 @@ export class EventsController {
   @ApiParam({ name: 'id', description: '보상 ID' })
   @ApiResponse({ status: 200, description: '보상 상세 정보 반환 성공' })
   @ApiResponse({ status: 404, description: '보상을 찾을 수 없음' })
+  @Public()
   @Get('rewards/:id')
   async findRewardById(@Param('id') id: string) {
     try {
@@ -217,8 +236,18 @@ export class EventsController {
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
   @ApiBody({ schema: { 
     properties: { 
-      verificationData: { type: 'object', example: { registrationDate: '2023-09-05T10:00:00Z' } }
-    }
+      rewardIds: { 
+        type: 'array', 
+        description: '요청할 보상 ID 목록 (최소 1개 이상 필수)',
+        example: ['60a1b2c3d4e5f6g7h8i9j0k1'] 
+      },
+      verificationData: { 
+        type: 'object', 
+        description: '조건 검증에 필요한 데이터',
+        example: { registrationDate: '2023-09-05T10:00:00Z' } 
+      }
+    },
+    required: ['rewardIds']
   }})
   @ApiResponse({ status: 201, description: '보상 요청 성공' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
@@ -228,11 +257,15 @@ export class EventsController {
   @Roles(UserRole.USER, UserRole.ADMIN)
   async createRewardRequest(
     @Param('eventId') eventId: string,
-    @Body() verificationData: Record<string, any>,
+    @Body() body: Record<string, any>,
     @Request() req
   ) {
     try {
-      const createRewardRequestDto = { eventId, verificationData };
+      const createRewardRequestDto = { 
+        eventId, 
+        rewardIds: body.rewardIds,
+        verificationData: body.verificationData
+      };
       return await this.eventsService.createRewardRequest(createRewardRequestDto, req.user._id);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
@@ -364,8 +397,8 @@ export class EventsController {
   @ApiParam({ name: 'eventId', description: '이벤트 ID' })
   @ApiBody({ schema: { 
     properties: { 
-      verificationData: { type: 'object', example: { code: 'EVENT123' } },
-      additionalData: { type: 'object', example: { source: 'mobile_app' } }
+      verificationData: { type: 'object', example: { code: 'EVENT123' }, description: '참여 검증에 필요한 데이터' },
+      additionalData: { type: 'object', example: { source: 'mobile_app' }, description: '추가 참여 정보' }
     }
   }})
   @ApiResponse({ status: 201, description: '이벤트 참여 성공' })

@@ -32,65 +32,56 @@ export class AuthService {
     // 비밀번호 해싱
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     
-    // 새 사용자 생성
-    const newUser = new this.userModel({
+    return this.userModel.create({
       ...createUserDto,
       password: hashedPassword,
       role: createUserDto.role || UserRole.USER,
     });
-    
-    return newUser.save();
   }
 
   async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string) {
-    try {
-      const user = await this.userModel.findOne({ email: loginDto.email }).exec();
+    // try/catch 제거하고 직접 예외 처리
+    const user = await this.userModel.findOne({ email: loginDto.email }).exec();
 
-      if (!user) {
-        throw new UnauthorizedException('Invalid email');
-      }
-
-      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-
-      if (!isPasswordValid) {
-        throw new UnauthorizedException('Invalid password');
-      }
-
-      // JWT 페이로드 생성
-      const payload = { 
-        email: user.email, 
-        sub: user._id.toString(),
-        role: user.role,
-        nickname: user.nickname
-      };
-      
-      // 액세스 토큰 생성
-      const accessToken = this.jwtService.sign(payload, {
-        expiresIn: '1h'
-      });
-      
-      // 리프레시 토큰 생성
-      const refreshToken = await this.generateRefreshToken(
-        user._id.toString(), 
-        ipAddress, 
-        userAgent
-      );
-      
-      // 비밀번호를 제외한 사용자 정보 반환
-      const { password, ...userData } = user.toObject();
-      
-      return {
-        success: true,
-        user: userData,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
+    if (!user) {
+      throw new UnauthorizedException('Invalid email');
     }
+
+    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    // JWT 페이로드 생성
+    const payload = { 
+      email: user.email, 
+      sub: user._id.toString(),
+      role: user.role,
+      nickname: user.nickname
+    };
+    
+    // 액세스 토큰 생성
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '1h'
+    });
+    
+    // 리프레시 토큰 생성
+    const refreshToken = await this.generateRefreshToken(
+      user._id.toString(), 
+      ipAddress, 
+      userAgent
+    );
+    
+    // 비밀번호를 제외한 사용자 정보 반환
+    const { password, ...userData } = user.toObject();
+    
+    return {
+      success: true,
+      user: userData,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
   }
 
   async validateToken(token: string) {
@@ -137,39 +128,32 @@ export class AuthService {
   }
 
   async updateUserRole(data: UpdateUserRoleDto, adminId: string) {
-    try {
-      // 관리자 권한 확인
-      const admin = await this.userModel.findById(adminId).exec();
-      if (!admin || admin.role !== UserRole.ADMIN) {
-        throw new ForbiddenException('Only admins can update user roles');
-      }
-
-      // 대상 사용자 찾기
-      const user = await this.userModel.findOne({ email: data.email }).exec();
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      // 자신의 역할은 변경할 수 없음
-      if (user._id.toString() === adminId) {
-        throw new ForbiddenException('Cannot change your own role');
-      }
-
-      // 역할 업데이트
-      user.role = data.role;
-      await user.save();
-
-      const { password, ...result } = user.toObject();
-      return {
-        success: true,
-        user: result
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message
-      };
+    // 관리자 권한 확인
+    const admin = await this.userModel.findById(adminId).exec();
+    if (!admin || admin.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admins can update user roles');
     }
+
+    // 대상 사용자 찾기
+    const user = await this.userModel.findOne({ email: data.email }).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // 자신의 역할은 변경할 수 없음
+    if (user._id.toString() === adminId) {
+      throw new ForbiddenException('Cannot change your own role');
+    }
+
+    // 역할 업데이트
+    user.role = data.role;
+    await user.save();
+
+    const { password, ...result } = user.toObject();
+    return {
+      success: true,
+      user: result
+    };
   }
 
   async findAllUsers() {

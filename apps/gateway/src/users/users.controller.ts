@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from 'libs/database/schema/user.schema';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { Public } from '../common/decorators/public.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiHeader } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import { Request as ExpressRequest, Response } from 'express';
@@ -23,8 +24,9 @@ export class UsersController {
   @ApiBody({ type: CreateUserDto })
   @ApiResponse({ status: 201, description: '사용자 등록 성공' })
   @ApiResponse({ status: 400, description: '잘못된 요청' })
-  @Post()
-  async create(@Body() createUserDto: CreateUserDto) {
+  @Public()
+  @Post('register')
+  async register(@Body() createUserDto: CreateUserDto) {
     const result = await this.usersService.create(createUserDto);
     
     if (!result.success) {
@@ -37,6 +39,7 @@ export class UsersController {
   @ApiOperation({ summary: '사용자 로그인', description: '이메일과 비밀번호로 로그인합니다.' })
   @ApiResponse({ status: 201, description: '로그인 성공' })
   @ApiResponse({ status: 401, description: '인증 실패' })
+  @Public()
   @Post('login')
   async login(
     @Body() loginDto: LoginDto, 
@@ -63,6 +66,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: '토큰 갱신 성공' })
   @ApiResponse({ status: 401, description: '인증 실패' })
+  @Public()
   @Post('refresh-token')
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
@@ -115,7 +119,7 @@ export class UsersController {
   @ApiResponse({ status: 400, description: '잘못된 요청' })
   @ApiResponse({ status: 401, description: '인증 실패' })
   @ApiResponse({ status: 403, description: '권한 부족' })
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard, JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @Put('role')
   async updateUserRole(@Body() updateRoleDto: UpdateUserRoleDto, @Request() req) {
@@ -134,7 +138,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: '인증 실패' })
   @ApiResponse({ status: 403, description: '권한 부족' })
   @ApiResponse({ status: 500, description: '서버 오류' })
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard, JwtAuthGuard)
   @Roles(UserRole.ADMIN)
   @Get()
   async findAllUsers() {

@@ -32,12 +32,12 @@ describe('RolesGuard', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
-  it('should be defined', () => {
+  it('정의되어야 함', () => {
     expect(guard).toBeDefined();
   });
 
   describe('canActivate', () => {
-    it('should return true when no roles are required', () => {
+    it('필요한 역할이 없을 때 true를 반환해야 함', () => {
       const mockRequest = {
         user: { _id: 'user1', role: UserRole.USER },
       };
@@ -57,7 +57,7 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
     });
 
-    it('should return true when user has required role', () => {
+    it('사용자가 필요한 역할을 가질 때 true를 반환해야 함', () => {
       const mockRequest = {
         user: { _id: 'user1', role: UserRole.ADMIN },
       };
@@ -77,7 +77,7 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
     });
 
-    it('should throw ForbiddenException when user does not have required role', () => {
+    it('사용자가 필요한 역할을 가지지 않을 때 ForbiddenException을 발생시켜야 함', () => {
       const mockRequest = {
         user: { _id: 'user1', role: UserRole.USER },
       };
@@ -95,7 +95,7 @@ describe('RolesGuard', () => {
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
     });
 
-    it('should throw UnauthorizedException when no user is in the request', () => {
+    it('요청에 사용자가 없을 때 UnauthorizedException을 발생시켜야 함', () => {
       const mockRequest = {};
 
       const mockContext = {

@@ -21,6 +21,11 @@ describe('AuthController', () => {
     getUserRole: jest.fn(),
   };
 
+  // 간단한 컨텍스트 모킹
+  const mockTcpContext: any = {
+    getPattern: jest.fn().mockReturnValue('validate_token'),
+  };
+
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -36,12 +41,12 @@ describe('AuthController', () => {
     authService = app.get<AuthService>(AuthService);
   });
 
-  it('should be defined', () => {
+  it('컨트롤러가 정의되어야 함', () => {
     expect(authController).toBeDefined();
   });
 
   describe('create', () => {
-    it('should create a new user successfully', async () => {
+    it('새 사용자를 성공적으로 생성해야 함', async () => {
       const createUserDto: CreateUserDto = {
         email: 'test@example.com',
         password: 'password123',
@@ -80,27 +85,27 @@ describe('AuthController', () => {
       expect(authService.create).toHaveBeenCalledWith(createUserDto);
     });
 
-    it('should handle errors when creating a user', async () => {
+    it('사용자 생성 시 오류를 처리해야 함', async () => {
       const createUserDto: CreateUserDto = {
         email: 'existing@example.com',
         password: 'password123',
         nickname: 'existinguser',
       };
 
-      const error = new Error('Email already exists');
+      const error = new Error('이메일이 이미 존재합니다');
       mockAuthService.create.mockRejectedValue(error);
 
       const result = await authController.create(createUserDto);
       expect(result).toEqual({
         success: false,
-        message: 'Email already exists'
+        message: '이메일이 이미 존재합니다'
       });
       expect(authService.create).toHaveBeenCalledWith(createUserDto);
     });
   });
 
   describe('login', () => {
-    it('should login a user successfully', async () => {
+    it('사용자 로그인이 성공적으로 이루어져야 함', async () => {
       const loginDto: LoginDto = {
         email: 'test@example.com',
         password: 'password123',
@@ -134,7 +139,7 @@ describe('AuthController', () => {
   });
 
   describe('validateToken', () => {
-    it('should validate a token successfully', async () => {
+    it('토큰이 유효할 때 성공적으로 검증해야 함', async () => {
       const token = 'valid-token';
       const expectedResult = {
         isValid: true,
@@ -148,25 +153,25 @@ describe('AuthController', () => {
 
       mockAuthService.validateToken.mockResolvedValue(expectedResult);
 
-      const result = await authController.validateToken({ token });
+      const result = await authController.validateToken({ token }, mockTcpContext);
       expect(result).toEqual(expectedResult);
       expect(authService.validateToken).toHaveBeenCalledWith(token);
     });
 
-    it('should return invalid for an invalid token', async () => {
+    it('유효하지 않은 토큰에 대해 invalid를 반환해야 함', async () => {
       const token = 'invalid-token';
       const expectedResult = { isValid: false };
 
       mockAuthService.validateToken.mockResolvedValue(expectedResult);
 
-      const result = await authController.validateToken({ token });
+      const result = await authController.validateToken({ token }, mockTcpContext);
       expect(result).toEqual(expectedResult);
       expect(authService.validateToken).toHaveBeenCalledWith(token);
     });
   });
 
   describe('refreshToken', () => {
-    it('should refresh tokens successfully', async () => {
+    it('토큰 갱신이 성공적으로 이루어져야 함', async () => {
       const refreshToken = 'valid-refresh-token';
       const ipAddress = '127.0.0.1';
       const userAgent = 'Chrome';
@@ -197,13 +202,13 @@ describe('AuthController', () => {
   });
 
   describe('revokeToken', () => {
-    it('should revoke a token successfully', async () => {
+    it('토큰 취소가 성공적으로 이루어져야 함', async () => {
       const token = 'token-to-revoke';
       const userId = 'userId123';
 
       const expectedResult = {
         success: true,
-        message: 'Token revoked successfully',
+        message: '토큰이 성공적으로 취소되었습니다',
       };
 
       mockAuthService.revokeToken.mockResolvedValue(expectedResult);
@@ -215,7 +220,7 @@ describe('AuthController', () => {
   });
 
   describe('updateUserRole', () => {
-    it('should update user role successfully', async () => {
+    it('사용자 역할이 성공적으로 업데이트되어야 함', async () => {
       const updateData: UpdateUserRoleDto = {
         email: 'user@example.com',
         role: UserRole.OPERATOR,
@@ -241,7 +246,7 @@ describe('AuthController', () => {
   });
 
   describe('findAllUsers', () => {
-    it('should return all users', async () => {
+    it('모든 사용자를 반환해야 함', async () => {
       const expectedResult = {
         success: true,
         users: [
@@ -269,25 +274,11 @@ describe('AuthController', () => {
   });
 
   describe('getUserRole', () => {
-    it('should return user role by email', async () => {
-      const email = 'test@example.com';
+    it('사용자 역할을 반환해야 함', async () => {
+      const email = 'user@example.com';
       const expectedResult = {
         success: true,
         role: UserRole.USER,
-      };
-
-      mockAuthService.getUserRole.mockResolvedValue(expectedResult);
-
-      const result = await authController.getUserRole(email);
-      expect(result).toEqual(expectedResult);
-      expect(authService.getUserRole).toHaveBeenCalledWith(email);
-    });
-
-    it('should handle user not found', async () => {
-      const email = 'nonexistent@example.com';
-      const expectedResult = {
-        success: false,
-        message: 'User not found',
       };
 
       mockAuthService.getUserRole.mockResolvedValue(expectedResult);

@@ -25,11 +25,18 @@ export class RolesGuard implements CanActivate {
     }
     
     // 사용자의 역할이 필요한 역할 중 하나와 일치하는지 확인
-    const hasRequiredRole = requiredRoles.some(role => user.role === role);
+    const hasRequiredRole = requiredRoles.some(role => {
+      // 둘 다 문자열로 변환하여 비교
+      return String(user.role) === String(role);
+    });
     
     if (!hasRequiredRole) {
       throw new ForbiddenException(`Access denied. Required role: ${requiredRoles.join(' or ')}`);
     }
+
+    console.log('Required roles:', requiredRoles);
+    console.log('User role:', user.role);
+    console.log('Type of user role:', typeof user.role);
     
     return true;
   }

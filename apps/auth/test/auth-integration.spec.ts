@@ -195,7 +195,7 @@ describe('Auth Service Integration Tests', () => {
       };
     });
     
-    jest.spyOn(controller, 'validateToken' as any).mockImplementation(async (data) => {
+    jest.spyOn(controller, 'validateToken' as any).mockImplementation(async (data, context) => {
       return {
         isValid: true,
         user: {
@@ -284,8 +284,9 @@ describe('Auth Service Integration Tests', () => {
 
     it('토큰 검증 엔드포인트가 동작해야 함', async () => {
       const data = { token: 'valid_token' };
+      const mockContext = { getPattern: () => 'validate_token' };
       
-      const result = await controller.validateToken(data);
+      const result = await controller.validateToken(data, mockContext as any);
       expect(result).toBeDefined();
       expect(result.isValid).toBe(true);
       expect(result.user).toBeDefined();

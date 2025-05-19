@@ -3,11 +3,16 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from '../users.service';
+import { Reflector } from '@nestjs/core';
+import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let jwtService: JwtService;
   let usersService: UsersService;
+  let reflector: Reflector;
+
+  const mockGetAllAndOverride = jest.fn().mockReturnValue(false);
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -25,6 +30,12 @@ describe('JwtAuthGuard', () => {
           useValue: {
             validateToken: jest.fn(),
           }
+        },
+        {
+          provide: Reflector,
+          useValue: {
+            getAllAndOverride: mockGetAllAndOverride
+          }
         }
       ],
     }).compile();
@@ -32,14 +43,34 @@ describe('JwtAuthGuard', () => {
     guard = module.get<JwtAuthGuard>(JwtAuthGuard);
     jwtService = module.get<JwtService>(JwtService);
     usersService = module.get<UsersService>(UsersService);
+    reflector = module.get<Reflector>(Reflector);
   });
 
-  it('should be defined', () => {
+  it('정의되어 있어야 함', () => {
     expect(guard).toBeDefined();
   });
 
   describe('canActivate', () => {
-    it('should return true when token is valid', async () => {
+    it('Public 경로에 대해 true를 반환해야 함', async () => {
+      // Public 데코레이터가 적용된 경로를 모킹
+      mockGetAllAndOverride.mockReturnValueOnce(true);
+
+      const mockExecutionContext = {
+        switchToHttp: jest.fn(),
+        getHandler: jest.fn(),
+        getClass: jest.fn(),
+      } as unknown as ExecutionContext;
+
+      const result = await guard.canActivate(mockExecutionContext);
+      
+      expect(result).toBe(true);
+      expect(reflector.getAllAndOverride).toHaveBeenCalledWith(IS_PUBLIC_KEY, [
+        mockExecutionContext.getHandler(),
+        mockExecutionContext.getClass(),
+      ]);
+    });
+
+    it('토큰이 유효할 때 true를 반환해야 함', async () => {
       const mockRequest = {
         headers: {
           authorization: 'Bearer valid_token',
@@ -62,6 +93,9 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
       jest.spyOn(jwtService, 'verify').mockReturnValue(mockUser);
       jest.spyOn(usersService, 'validateToken').mockResolvedValue(mockUser);
 
@@ -71,7 +105,7 @@ describe('JwtAuthGuard', () => {
       expect(mockRequest.user).toEqual(mockUser);
     });
 
-    it('should use local JWT verification when Auth service validation fails', async () => {
+    it('Auth 서비스 검증 실패 시 로컬 JWT 검증을 사용해야 함', async () => {
       const mockRequest = {
         headers: {
           authorization: 'Bearer valid_token',
@@ -95,8 +129,11 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
       jest.spyOn(jwtService, 'verify').mockReturnValue(mockPayload);
-      jest.spyOn(usersService, 'validateToken').mockRejectedValue(new Error('Auth service unavailable'));
+      jest.spyOn(usersService, 'validateToken').mockRejectedValue(new Error('Auth 서비스 사용 불가'));
 
       const result = await guard.canActivate(mockExecutionContext);
 
@@ -106,11 +143,10 @@ describe('JwtAuthGuard', () => {
         email: mockPayload.email,
         role: mockPayload.role,
         nickname: mockPayload.nickname,
-        isPartialUser: true,
       });
     });
 
-    it('should try Auth service validation when local JWT verification fails', async () => {
+    it('JWT 검증 실패 시 UnauthorizedException을 발생시켜야 함', async () => {
       const mockRequest = {
         headers: {
           authorization: 'Bearer valid_token',
@@ -133,18 +169,30 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
+      // JWT verify 결과를 조건부로 모킹
+      let jwtVerifyCalled = false;
       jest.spyOn(jwtService, 'verify').mockImplementation(() => {
-        throw new Error('JWT verification failed');
+        if (!jwtVerifyCalled) {
+          jwtVerifyCalled = true;
+          throw new Error('JWT 검증 실패');
+        }
+        // 이 부분은 가드에서 예외가 발생하므로 호출되지 않음
+        return { sub: 'user_id', email: 'user@example.com', role: 'USER' };
       });
+
+      // validateToken이 성공하도록 모킹
       jest.spyOn(usersService, 'validateToken').mockResolvedValue(mockUser);
 
-      const result = await guard.canActivate(mockExecutionContext);
-
-      expect(result).toBe(true);
-      expect(mockRequest.user).toEqual(mockUser);
+      // UnauthorizedException이 발생하는지 확인
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(UnauthorizedException);
+      expect(jwtService.verify).toHaveBeenCalled();
+      expect(usersService.validateToken).not.toHaveBeenCalled();
     });
 
-    it('should throw UnauthorizedException when no token is provided', async () => {
+    it('토큰이 제공되지 않을 때 UnauthorizedException을 발생시켜야 함', async () => {
       const mockRequest = {
         headers: {},
       };
@@ -158,10 +206,13 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException when token type is not Bearer', async () => {
+    it('토큰 타입이 Bearer가 아닐 때 UnauthorizedException을 발생시켜야 함', async () => {
       const mockRequest = {
         headers: {
           authorization: 'Basic invalid_token_type',
@@ -177,10 +228,13 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException when token is invalid', async () => {
+    it('토큰이 유효하지 않을 때 UnauthorizedException을 발생시켜야 함', async () => {
       const mockRequest = {
         headers: {
           authorization: 'Bearer invalid_token',
@@ -196,11 +250,14 @@ describe('JwtAuthGuard', () => {
         getClass: jest.fn(),
       } as unknown as ExecutionContext;
 
+      // Public 경로가 아님을 설정
+      mockGetAllAndOverride.mockReturnValueOnce(false);
+
       jest.spyOn(jwtService, 'verify').mockImplementation(() => {
-        throw new Error('Invalid token');
+        throw new Error('유효하지 않은 토큰');
       });
       
-      jest.spyOn(usersService, 'validateToken').mockRejectedValue(new Error('Invalid token'));
+      jest.spyOn(usersService, 'validateToken').mockRejectedValue(new Error('유효하지 않은 토큰'));
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(UnauthorizedException);
     });

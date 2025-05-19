@@ -14,8 +14,15 @@ services:
       - event
     networks:
       - app-network
-    env_file:
-      - .env
+    environment:
+      - AUTH_SERVICE_HOST=auth
+      - AUTH_SERVICE_PORT=3001
+      - EVENT_SERVICE_HOST=event
+      - EVENT_SERVICE_PORT=3002
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - MONGODB_URI=${MONGODB_URI}
+      - LOG_LEVEL=debug
 
   auth:
     build:
@@ -23,12 +30,15 @@ services:
       dockerfile: ./apps/auth/Dockerfile
       args:
         APP_NAME: auth
-    expose:
-      - "3001"
+    ports:
+       - "3001:3000"
     networks:
       - app-network
-    env_file:
-      - .env
+    environment:
+      - LOG_LEVEL=debug
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - MONGODB_URI=${MONGODB_URI}
 
   event:
     build:
@@ -36,12 +46,15 @@ services:
       dockerfile: ./apps/event/Dockerfile
       args:
         APP_NAME: event
-    expose:
-      - "3002"
+    ports:
+       - "3002:3000"
     networks:
       - app-network
-    env_file:
-      - .env
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - LOG_LEVEL=debug
 
   mongodb:
     image: mongo:latest

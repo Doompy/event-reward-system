@@ -37,7 +37,7 @@ export class HealthService {
 
   async check(): Promise<HealthCheckResult> {
     return this.health.check([
-      () => this.http.pingCheck('gateway', 'http://localhost:3000/api'),
+      () => this.http.pingCheck('gateway', 'http://gateway:3000/api'),
       () => this.getServiceStatus('auth'),
       () => this.getServiceStatus('event'),
     ]);
@@ -45,7 +45,7 @@ export class HealthService {
 
   async checkDetails(): Promise<HealthCheckResult> {
     return this.health.check([
-      () => this.http.pingCheck('gateway', 'http://localhost:3000/api'),
+      () => this.http.pingCheck('gateway', 'http://gateway:3000/api'),
       () => this.getServiceStatus('auth'),
       () => this.getServiceStatus('event'),
       () => this.disk.checkStorage('storage', { path: '/', thresholdPercent: 90 }),

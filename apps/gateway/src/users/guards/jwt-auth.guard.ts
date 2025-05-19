@@ -1,6 +1,8 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { UsersService } from '../users.service';
 import { JwtService } from '@nestjs/jwt';
+import { Reflector } from '@nestjs/core';
+import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -8,11 +10,21 @@ export class JwtAuthGuard implements CanActivate {
 
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private reflector: Reflector
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    this.logger.log('🔒 JwtAuthGuard.canActivate called');
+    // Public 라우트 체크
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
+    this.logger.log('🚨🚨🚨 AUTH GUARD CALLED 🚨🚨🚨');
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
     
@@ -31,7 +43,9 @@ export class JwtAuthGuard implements CanActivate {
     try {
       // JWT 토큰 검증 및 사용자 정보 가져오기
       this.logger.log(`Verifying JWT token locally: ${token.substring(0, 15)}...`);
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET,
+      });
       this.logger.log(`JWT payload verified: ${JSON.stringify(payload)}`);
       
       // Auth 서비스에서 사용자 정보 가져오기
@@ -53,7 +67,7 @@ export class JwtAuthGuard implements CanActivate {
         request.user = {
           _id: payload.sub,
           email: payload.email,
-          role: payload.role,
+          role: payload.role,  // 타입 확인 필요
           nickname: payload.nickname,
         };
         

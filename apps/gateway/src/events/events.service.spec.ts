@@ -37,12 +37,12 @@ describe('EventsService', () => {
     healthService = module.get<HealthService>(HealthService);
   });
 
-  it('should be defined', () => {
+  it('정의되어야 함', () => {
     expect(service).toBeDefined();
   });
 
   describe('createEvent', () => {
-    it('should create a new event and update health status', async () => {
+    it('새 이벤트를 생성하고 서비스 상태를 업데이트해야 함', async () => {
       const createEventDto = { title: 'Test Event' };
       const userId = 'user123';
       const expectedResult = { id: 'event1', ...createEventDto };
@@ -58,7 +58,7 @@ describe('EventsService', () => {
       expect(result).toEqual(expectedResult);
     });
 
-    it('should handle errors and update health status', async () => {
+    it('오류를 처리하고 서비스 상태를 업데이트해야 함', async () => {
       const createEventDto = { title: 'Test Event' };
       const userId = 'user123';
       const testError = new Error('Test error');
@@ -71,7 +71,7 @@ describe('EventsService', () => {
   });
 
   describe('findAllEvents', () => {
-    it('should return all events and update health status', async () => {
+    it('모든 이벤트를 반환하고 서비스 상태를 업데이트해야 함', async () => {
       const filters = { status: 'ACTIVE' };
       const expectedResult = [{ id: 'event1', title: 'Event 1' }];
 
@@ -86,7 +86,7 @@ describe('EventsService', () => {
       expect(result).toEqual(expectedResult);
     });
     
-    it('should handle errors when finding all events', async () => {
+    it('모든 이벤트를 찾을 때 오류를 처리해야 함', async () => {
       const filters = { status: 'ACTIVE' };
       const testError = new Error('Failed to find events');
       
@@ -98,7 +98,7 @@ describe('EventsService', () => {
   });
 
   describe('findActiveEvents', () => {
-    it('should return active events and update health status', async () => {
+    it('활성화된 이벤트를 반환하고 서비스 상태를 업데이트해야 함', async () => {
       const expectedResult = [{ id: 'event1', title: 'Active Event' }];
 
       jest.spyOn(eventClient, 'send').mockImplementationOnce(() => of(expectedResult));
@@ -112,7 +112,7 @@ describe('EventsService', () => {
       expect(result).toEqual(expectedResult);
     });
     
-    it('should handle errors when finding active events', async () => {
+    it('활성화된 이벤트를 찾을 때 오류를 처리해야 함', async () => {
       const testError = new Error('Failed to find active events');
       
       jest.spyOn(eventClient, 'send').mockImplementationOnce(() => throwError(() => testError));
@@ -123,7 +123,7 @@ describe('EventsService', () => {
   });
   
   describe('findEventById', () => {
-    it('should return an event by id and update health status', async () => {
+    it('ID로 이벤트를 반환하고 서비스 상태를 업데이트해야 함', async () => {
       const eventId = 'event123';
       const expectedResult = { id: eventId, title: 'Test Event' };
       
@@ -138,7 +138,7 @@ describe('EventsService', () => {
       expect(result).toEqual(expectedResult);
     });
     
-    it('should handle errors when finding event by id', async () => {
+    it('ID로 이벤트를 찾을 때 오류를 처리해야 함', async () => {
       const eventId = 'nonexistent';
       const testError = new Error('Event not found');
       
@@ -150,7 +150,7 @@ describe('EventsService', () => {
   });
 
   describe('updateEvent', () => {
-    it('should update an event and update health status', async () => {
+    it('이벤트를 업데이트하고 서비스 상태를 업데이트해야 함', async () => {
       const eventId = 'event123';
       const updateEventDto = { title: 'Updated Event' };
       const userId = 'user123';
@@ -169,7 +169,7 @@ describe('EventsService', () => {
   });
 
   describe('createReward', () => {
-    it('should create a reward and update health status', async () => {
+    it('보상을 생성하고 서비스 상태를 업데이트해야 함', async () => {
       const createRewardDto = { name: 'Test Reward', eventId: 'event1' };
       const userId = 'user123';
       const expectedResult = { id: 'reward1', ...createRewardDto };
@@ -187,7 +187,7 @@ describe('EventsService', () => {
   });
   
   describe('findRewardsByEventId', () => {
-    it('should find rewards by event id and update health status', async () => {
+    it('이벤트 ID로 보상을 찾고 서비스 상태를 업데이트해야 함', async () => {
       const eventId = 'event123';
       const expectedResult = [{ id: 'reward1', name: 'Test Reward' }];
       
@@ -204,7 +204,7 @@ describe('EventsService', () => {
   });
   
   describe('findRewardById', () => {
-    it('should find a reward by id and update health status', async () => {
+    it('ID로 보상을 찾고 서비스 상태를 업데이트해야 함', async () => {
       const rewardId = 'reward123';
       const expectedResult = { id: rewardId, name: 'Test Reward' };
       
@@ -221,8 +221,12 @@ describe('EventsService', () => {
   });
 
   describe('createRewardRequest', () => {
-    it('should create a reward request and update health status', async () => {
-      const createRewardRequestDto = { eventId: 'event1', verificationData: { code: '123' } };
+    it('보상 요청을 생성하고 서비스 상태를 업데이트해야 함', async () => {
+      const createRewardRequestDto = { 
+        eventId: 'event1', 
+        rewardIds: ['reward1', 'reward2'],
+        verificationData: { code: '123' } 
+      };
       const userId = 'user123';
       const expectedResult = { id: 'request1', status: 'PENDING' };
 
@@ -239,7 +243,7 @@ describe('EventsService', () => {
   });
   
   describe('updateRewardRequest', () => {
-    it('should update a reward request and update health status', async () => {
+    it('보상 요청을 업데이트하고 서비스 상태를 업데이트해야 함', async () => {
       const requestId = 'request123';
       const updateRewardRequestDto = { status: 'APPROVED' };
       const userId = 'user123';
@@ -258,7 +262,7 @@ describe('EventsService', () => {
   });
   
   describe('findRewardRequestById', () => {
-    it('should find a reward request by id and update health status', async () => {
+    it('ID로 보상 요청을 찾고 서비스 상태를 업데이트해야 함', async () => {
       const requestId = 'request123';
       const expectedResult = { id: requestId, status: 'PENDING' };
       
@@ -275,7 +279,7 @@ describe('EventsService', () => {
   });
 
   describe('findUserRewardsByUserId', () => {
-    it('should return user rewards and update health status', async () => {
+    it('사용자 ID로 보상을 반환하고 서비스 상태를 업데이트해야 함', async () => {
       const userId = 'user123';
       const expectedResult = [{ id: 'userReward1', userId, name: 'User Reward' }];
 
@@ -292,7 +296,7 @@ describe('EventsService', () => {
   });
   
   describe('findRewardRequestsByUserId', () => {
-    it('should find reward requests by user id and update health status', async () => {
+    it('사용자 ID로 보상 요청을 찾고 서비스 상태를 업데이트해야 함', async () => {
       const userId = 'user123';
       const expectedResult = [{ id: 'request1', status: 'PENDING' }];
       
@@ -309,7 +313,7 @@ describe('EventsService', () => {
   });
   
   describe('findRewardRequests', () => {
-    it('should find all reward requests and update health status', async () => {
+    it('모든 보상 요청을 찾고 서비스 상태를 업데이트해야 함', async () => {
       const filters = { status: 'PENDING' };
       const expectedResult = [{ id: 'request1', status: 'PENDING' }];
       
